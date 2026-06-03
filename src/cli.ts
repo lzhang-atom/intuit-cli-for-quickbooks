@@ -281,12 +281,16 @@ invoices.command("create").description("Create an invoice")
   .option("--amount <amount>", "Line item amount")
   .option("--item-ref <id>", "Item ID (default: 1)")
   .option("-f, --file <path>", "JSON file with full payload (multi-line items, descriptions, tax, etc.)")
+  .option("--dry-run", "Preview the request body without making changes")
+  .option("--idempotency-tag <value>", "Attribution marker appended to PrivateNote (for agent/audit traceability)")
   .action(async (options) => {
     await invoicesCreate({
       file: options.file,
       customerRef: options.customerRef,
       amount: options.amount,
       itemRef: options.itemRef,
+      dryRun: !!options.dryRun,
+      idempotencyTag: options.idempotencyTag,
     }, options.profile).catch(handleError);
   });
 

@@ -7,7 +7,7 @@ import { toTable } from "./table.js";
 export async function entityGet(apiPath, responseKey, id, options, profile, fields) {
     const data = await intuitGet(`${apiPath}/${id}`, profile);
     const entity = data[responseKey];
-    if (!entity) {
+    if (!entity || entity.Id === undefined || entity.Id === null) {
         throw new Error(`${responseKey} ${id} not found.`);
     }
     if (options.json) {

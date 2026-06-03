@@ -1,7 +1,17 @@
 import fs from "node:fs";
 import { intuitPost } from "../lib/intuit-api.js";
 
-export async function invoicesCreate(options: { file?: string; customerRef?: string; amount?: string; itemRef?: string }, profile?: string) {
+export async function invoicesCreate(
+  options: {
+    file?: string;
+    customerRef?: string;
+    amount?: string;
+    itemRef?: string;
+    dryRun?: boolean;
+    idempotencyTag?: string;
+  },
+  profile?: string,
+) {
   let body: Record<string, unknown>;
 
   if (options.file) {
@@ -30,6 +40,18 @@ export async function invoicesCreate(options: { file?: string; customerRef?: str
     };
   } else {
     throw new Error("Provide --customer-ref for a simple single-line invoice, or --file for full control (multi-line items, descriptions, tax, etc.).");
+  }
+
+  if (options.idempotencyTag) {
+    const marker = `[via Intuit CLI · run ${options.idempotencyTag}]`;
+    const existing = typeof body.PrivateNote === "string" ? body.PrivateNote : "";
+    body.PrivateNote = existing ? `${existing} ${marker}` : marker;
+  }
+
+  if (options.dryRun) {
+    console.log("[dry-run] POST /invoice");
+    console.log(JSON.stringify(body, null, 2));
+    return;
   }
 
   const data = await intuitPost("invoice", body, profile);

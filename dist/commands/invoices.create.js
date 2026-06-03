@@ -33,6 +33,16 @@ export async function invoicesCreate(options, profile) {
     else {
         throw new Error("Provide --customer-ref for a simple single-line invoice, or --file for full control (multi-line items, descriptions, tax, etc.).");
     }
+    if (options.idempotencyTag) {
+        const marker = `[via Intuit CLI · run ${options.idempotencyTag}]`;
+        const existing = typeof body.PrivateNote === "string" ? body.PrivateNote : "";
+        body.PrivateNote = existing ? `${existing} ${marker}` : marker;
+    }
+    if (options.dryRun) {
+        console.log("[dry-run] POST /invoice");
+        console.log(JSON.stringify(body, null, 2));
+        return;
+    }
     const data = await intuitPost("invoice", body, profile);
     const invoice = data.Invoice;
     console.log(`Created invoice [${invoice.Id}] #${invoice.DocNumber || "N/A"} — $${invoice.TotalAmt}`);
