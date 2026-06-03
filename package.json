@@ -28,8 +28,8 @@
     "start": "node dist/cli.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepare": "tsc",
+    "prepublishOnly": "tsc"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -51,12 +51,12 @@
     "@napi-rs/keyring": "^1.2.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
-    "intuit-oauth": "^4.2.3"
+    "intuit-oauth": "^4.2.3",
+    "typescript": "^5.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.4",
     "vitest": "^4.1.4"
   }
 }
