@@ -28,7 +28,7 @@
     "start": "node dist/cli.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "tsc",
+    "prepare": "npx tsc",
     "prepublishOnly": "tsc"
   },
   "engines": {
