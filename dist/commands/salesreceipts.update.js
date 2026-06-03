@@ -1,0 +1,15 @@
+import { entityUpdate } from "../lib/entity-update.js";
+export async function salesreceiptsUpdate(id, options, profile) {
+    const fields = {};
+    if (options.customerRef)
+        fields.CustomerRef = { value: options.customerRef };
+    if (options.amount) {
+        fields.Line = [{
+                Amount: parseFloat(options.amount),
+                DetailType: "SalesItemLineDetail",
+                SalesItemLineDetail: { ItemRef: { value: options.itemRef || "1" } },
+            }];
+    }
+    const updated = await entityUpdate("salesreceipt", "SalesReceipt", id, fields, options.file, profile);
+    console.log(`Updated sales receipt [${updated.Id}] #${updated.DocNumber || "N/A"}`);
+}
