@@ -1,0 +1,14 @@
+{
+  "Name": "Widget Pro",
+  "Type": "NonInventory",
+  "Description": "Premium widget — non-inventory product",
+  "UnitPrice": 29.99,
+  "IncomeAccountRef": {
+    "value": "79",
+    "name": "Sales of Product Income"
+  },
+  "ExpenseAccountRef": {
+    "value": "80",
+    "name": "Cost of Goods Sold"
+  }
+}

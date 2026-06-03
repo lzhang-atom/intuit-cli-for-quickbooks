@@ -1,0 +1,17 @@
+{
+  "Line": [
+    {
+      "Amount": 100.00,
+      "DetailType": "SalesItemLineDetail",
+      "SalesItemLineDetail": {
+        "ItemRef": {
+          "value": "1",
+          "name": "Services"
+        }
+      }
+    }
+  ],
+  "CustomerRef": {
+    "value": "1"
+  }
+}

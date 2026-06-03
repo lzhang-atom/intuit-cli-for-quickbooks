@@ -1,0 +1,20 @@
+{
+  "VendorRef": {
+    "value": "56",
+    "name": "Office Supplies Inc"
+  },
+  "Line": [
+    {
+      "Amount": 350.00,
+      "DetailType": "AccountBasedExpenseLineDetail",
+      "AccountBasedExpenseLineDetail": {
+        "AccountRef": {
+          "value": "13",
+          "name": "Meals and Entertainment"
+        }
+      },
+      "Description": "Monthly office supplies"
+    }
+  ],
+  "DueDate": "2026-05-15"
+}

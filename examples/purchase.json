@@ -1,0 +1,20 @@
+{
+  "PaymentType": "Cash",
+  "AccountRef": {
+    "value": "35",
+    "name": "Checking"
+  },
+  "Line": [
+    {
+      "Amount": 250.00,
+      "DetailType": "AccountBasedExpenseLineDetail",
+      "AccountBasedExpenseLineDetail": {
+        "AccountRef": {
+          "value": "13",
+          "name": "Meals and Entertainment"
+        }
+      },
+      "Description": "Team lunch — Q2 kickoff"
+    }
+  ]
+}

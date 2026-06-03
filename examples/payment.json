@@ -1,0 +1,18 @@
+{
+  "CustomerRef": {
+    "value": "20",
+    "name": "Red Rock Diner"
+  },
+  "TotalAmt": 55.00,
+  "Line": [
+    {
+      "Amount": 55.00,
+      "LinkedTxn": [
+        {
+          "TxnId": "69",
+          "TxnType": "Invoice"
+        }
+      ]
+    }
+  ]
+}

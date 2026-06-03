@@ -1,0 +1,61 @@
+{
+  "name": "intuit-cli",
+  "version": "0.2.2",
+  "description": "CLI for Intuit QuickBooks Online APIs",
+  "author": "Intuit",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IntuitDeveloper/intuit-developer-cli.git"
+  },
+  "homepage": "https://github.com/IntuitDeveloper/intuit-developer-cli#readme",
+  "bugs": {
+    "url": "https://github.com/IntuitDeveloper/intuit-developer-cli/issues"
+  },
+  "files": [
+    "dist/",
+    "examples/",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "bin": {
+    "intuit": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "intuit",
+    "quickbooks",
+    "quickbooks-online",
+    "qbo",
+    "cli",
+    "accounting",
+    "api",
+    "invoice",
+    "oauth",
+    "webhooks",
+    "developer-tools"
+  ],
+  "dependencies": {
+    "@napi-rs/keyring": "^1.2.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "intuit-oauth": "^4.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.4"
+  }
+}

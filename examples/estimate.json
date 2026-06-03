@@ -1,0 +1,20 @@
+{
+  "Line": [
+    {
+      "Amount": 1200.00,
+      "DetailType": "SalesItemLineDetail",
+      "SalesItemLineDetail": {
+        "ItemRef": {
+          "value": "1",
+          "name": "Services"
+        }
+      },
+      "Description": "Consulting services — project scoping"
+    }
+  ],
+  "CustomerRef": {
+    "value": "1"
+  },
+  "ExpirationDate": "2026-05-15",
+  "TxnDate": "2026-04-15"
+}

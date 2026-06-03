@@ -1,0 +1,18 @@
+{
+  "DepositToAccountRef": {
+    "value": "35",
+    "name": "Checking"
+  },
+  "Line": [
+    {
+      "Amount": 500.00,
+      "DetailType": "DepositLineDetail",
+      "DepositLineDetail": {
+        "AccountRef": {
+          "value": "87",
+          "name": "Unapplied Cash Payment Income"
+        }
+      }
+    }
+  ]
+}

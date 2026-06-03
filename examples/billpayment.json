@@ -1,0 +1,25 @@
+{
+  "VendorRef": {
+    "value": "56",
+    "name": "Office Supplies Inc"
+  },
+  "TotalAmt": 200.00,
+  "PayType": "Check",
+  "CheckPayment": {
+    "BankAccountRef": {
+      "value": "35",
+      "name": "Checking"
+    }
+  },
+  "Line": [
+    {
+      "Amount": 200.00,
+      "LinkedTxn": [
+        {
+          "TxnId": "25",
+          "TxnType": "Bill"
+        }
+      ]
+    }
+  ]
+}

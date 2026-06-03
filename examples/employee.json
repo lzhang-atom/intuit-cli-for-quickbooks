@@ -1,0 +1,17 @@
+{
+  "GivenName": "Jane",
+  "FamilyName": "Doe",
+  "DisplayName": "Jane Doe",
+  "PrimaryPhone": {
+    "FreeFormNumber": "(555) 123-4567"
+  },
+  "PrimaryEmailAddr": {
+    "Address": "jane.doe@example.com"
+  },
+  "PrimaryAddr": {
+    "Line1": "456 Oak Avenue",
+    "City": "San Jose",
+    "CountrySubDivisionCode": "CA",
+    "PostalCode": "95112"
+  }
+}
