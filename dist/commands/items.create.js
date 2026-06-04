@@ -19,16 +19,29 @@ export async function itemsCreate(options, profile) {
     }
     else if (options.name) {
         const type = options.type || "Service";
+        if (type === "Group") {
+            throw new Error("Group items cannot be created via the QuickBooks Online API. Create them in the QuickBooks UI instead.");
+        }
         if (!["Service", "NonInventory", "Inventory", "Category"].includes(type)) {
             throw new Error("--type must be Service, NonInventory, Inventory, or Category.");
         }
         body = { Name: options.name, Type: type };
         if (type === "Category") {
-            // Category only needs Name and Type
+            if (options.incomeAccountRef || options.expenseAccountRef) {
+                throw new Error("Category items cannot have income or expense accounts. Remove --income-account-ref and --expense-account-ref.");
+            }
         }
         else if (type === "Inventory") {
-            if (!options.incomeAccountRef || !options.expenseAccountRef) {
-                throw new Error("Inventory items require --income-account-ref and --expense-account-ref.");
+            const missing = [];
+            if (!options.incomeAccountRef)
+                missing.push("--income-account-ref");
+            if (!options.expenseAccountRef)
+                missing.push("--expense-account-ref");
+            if (missing.length > 0) {
+                throw new Error(`Inventory items require ${missing.join(" and ")}. ` +
+                    `Find IDs with: intuit accounts list --where \"AccountType = 'Income'\" (for income) ` +
+                    `and intuit accounts list --where \"AccountType = 'Cost of Goods Sold'\" (for expense). ` +
+                    `Inventory also requires an asset account — pass it via --file using AssetAccountRef.`);
             }
             body.IncomeAccountRef = { value: options.incomeAccountRef };
             body.ExpenseAccountRef = { value: options.expenseAccountRef };
@@ -37,12 +50,30 @@ export async function itemsCreate(options, profile) {
             body.QtyOnHand = 0;
             body.InvStartDate = new Date().toISOString().split("T")[0];
         }
+        else if (type === "Service") {
+            const missing = [];
+            if (!options.incomeAccountRef)
+                missing.push("--income-account-ref");
+            if (!options.expenseAccountRef)
+                missing.push("--expense-account-ref");
+            if (missing.length > 0) {
+                throw new Error(`Service items require ${missing.join(" and ")}. ` +
+                    `Find IDs with: intuit accounts list --where \"AccountType = 'Income'\" (for income) ` +
+                    `and intuit accounts list --where \"AccountType = 'Expense'\" (for expense).`);
+            }
+            body.IncomeAccountRef = { value: options.incomeAccountRef };
+            body.ExpenseAccountRef = { value: options.expenseAccountRef };
+        }
         else {
-            // Service or NonInventory
+            // NonInventory
+            if (!options.expenseAccountRef) {
+                throw new Error("NonInventory items require --expense-account-ref. " +
+                    "Find one with: intuit accounts list --where \"AccountType = 'Expense'\". " +
+                    "Pass --income-account-ref too if you sell this item.");
+            }
+            body.ExpenseAccountRef = { value: options.expenseAccountRef };
             if (options.incomeAccountRef)
                 body.IncomeAccountRef = { value: options.incomeAccountRef };
-            if (options.expenseAccountRef)
-                body.ExpenseAccountRef = { value: options.expenseAccountRef };
         }
     }
     else {

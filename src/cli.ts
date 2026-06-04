@@ -417,9 +417,9 @@ items.command("list").description("List items")
 items.command("create").description("Create an item (product or service)")
   .option("-p, --profile <name>", "Profile to use")
   .option("-n, --name <name>", "Item name")
-  .option("--type <type>", "Item type: Service, NonInventory, Inventory, or Category", "Service")
-  .option("--income-account-ref <id>", "Income account ID (required for Inventory)")
-  .option("--expense-account-ref <id>", "Expense/COGS account ID (required for Inventory)")
+  .option("--type <type>", "Item type: Service, NonInventory, Inventory, or Category (Group not supported by API)", "Service")
+  .option("--income-account-ref <id>", "Income account ID (required for Service and Inventory; recommended for NonInventory if sold)")
+  .option("--expense-account-ref <id>", "Expense or COGS account ID (required for Service, NonInventory, and Inventory)")
   .option("-f, --file <path>", "JSON file with full payload (inventory tracking, SKU, unit price, etc.)")
   .action(async (options) => {
     await itemsCreate({
