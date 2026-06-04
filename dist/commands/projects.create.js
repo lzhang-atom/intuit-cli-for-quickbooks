@@ -1,6 +1,5 @@
 import fs from "fs";
 import { graphqlMutation } from "../lib/graphql-api.js";
-import { tokenStore } from "../lib/token-store.js";
 const MUTATION = `
 mutation ProjectManagementCreateProject(
   $name: String!,
@@ -9,7 +8,6 @@ mutation ProjectManagementCreateProject(
   $dueDate: DateTime!,
   $status: ProjectManagement_Status,
   $customer: ProjectManagement_CustomerInput,
-  $account: ProjectManagement_CompanyInput!,
   $priority: Int,
   $pinned: Boolean,
   $completionRate: Decimal
@@ -21,7 +19,6 @@ mutation ProjectManagementCreateProject(
     dueDate: $dueDate,
     status: $status,
     customer: $customer,
-    account: $account,
     priority: $priority,
     pinned: $pinned,
     completionRate: $completionRate,
@@ -45,14 +42,9 @@ export async function projectsCreate(options, profile) {
             throw new Error("--name is required (or use --file)");
         if (!options.dueDate)
             throw new Error("--due-date is required (or use --file)");
-        // realmId is the QBO company ID — auto-resolved from the active token
-        const token = await tokenStore.getValidToken(profile);
-        if (!token.realmId)
-            throw new Error("No realmId found in token. Run 'intuit auth login' first.");
         variables = {
             name: options.name,
             dueDate: options.dueDate,
-            account: { id: token.realmId },
             ...(options.startDate ? { startDate: options.startDate } : {}),
             ...(options.customerId ? { customer: { id: options.customerId } } : {}),
             ...(options.status ? { status: options.status } : { status: "OPEN" }),
