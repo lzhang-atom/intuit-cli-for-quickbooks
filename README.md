@@ -52,8 +52,6 @@ intuit auth status                     # verify connection
 intuit customers list --json           # first call
 ```
 
-A step-by-step walkthrough including portal setup is in [`docs/quickstart.rst`](docs/quickstart.rst).
-
 ## Configuration
 
 Use `intuit auth configure` for interactive setup of credentials.
