@@ -12,6 +12,17 @@ const SUPPORTED_ENTITIES: Record<string, { apiPath: string; responseKey: string 
 type LineItem = Record<string, unknown>;
 type DimInput = { lineNum?: number; definitionId: string; valueId: string };
 
+// QBO transactions can contain non-item line types (SubTotal, Group summary,
+// DescriptionOnly footers) that carry no LineNum and can't hold dimensions.
+// Filter those out before any per-line operation.
+function isAttachableLine(line: LineItem): boolean {
+  const detailType = line.DetailType as string | undefined;
+  if (!detailType) return false;
+  return detailType === "SalesItemLineDetail"
+    || detailType === "ItemBasedExpenseLineDetail"
+    || detailType === "AccountBasedExpenseLineDetail";
+}
+
 function attachDimensionToLine(line: LineItem, definitionId: string, valueId: string): LineItem {
   const existing = (line.CustomExtensions as Record<string, unknown>[] | undefined) || [];
 
@@ -73,9 +84,15 @@ export async function dimensionsAttach(
   const txn = data[entityDef.responseKey] as Record<string, unknown>;
   if (!txn) throw new Error(`${entityDef.responseKey} ${options.entityId} not found.`);
 
-  const lines = (txn.Line as LineItem[]) || [];
+  const allLines = (txn.Line as LineItem[]) || [];
+  const lines = allLines.filter(isAttachableLine);
+  const skippedCount = allLines.length - lines.length;
   const docNum = txn.DocNumber ? ` #${txn.DocNumber}` : "";
   const totalAmt = txn.TotalAmt ? ` — $${txn.TotalAmt}` : "";
+
+  if (lines.length === 0) {
+    throw new Error(`${entityDef.responseKey} ${options.entityId} has no attachable line items.`);
+  }
 
   // Determine which lines to touch
   const targetLines = perLine
@@ -85,7 +102,8 @@ export async function dimensionsAttach(
   if (options.dryRun) {
     if (!perLine) {
       console.log(`\nDimension to attach: definition [${options.definitionId}]  →  value [${options.valueId}]`);
-      console.log(`\nWill attach to ALL ${targetLines.length} line(s) on ${options.entity}${docNum}${totalAmt} [${options.entityId}]:\n`);
+      const skipNote = skippedCount > 0 ? ` (${skippedCount} non-item line(s) skipped)` : "";
+      console.log(`\nWill attach to ALL ${targetLines.length} attachable line(s)${skipNote} on ${options.entity}${docNum}${totalAmt} [${options.entityId}]:\n`);
       for (const l of targetLines) {
         const desc = l.Description ? ` — ${l.Description}` : "";
         const amt = l.Amount != null ? `  $${l.Amount}` : "";
@@ -106,13 +124,14 @@ export async function dimensionsAttach(
     return;
   }
 
-  // Apply dimension to lines
-  const updatedLines = lines.map(line => {
+  // Apply dimension to lines. Operate on the full list (allLines) so non-item
+  // lines pass through unchanged — we just skip attaching to them. This
+  // preserves SubTotal/Group lines exactly as QBO returned them.
+  const updatedLines = allLines.map(line => {
+    if (!isAttachableLine(line)) return line;
     if (!perLine) {
-      // All lines — same single dimension
       return attachDimensionToLine(line, inputs[0].definitionId, inputs[0].valueId);
     }
-    // Per line — find matching input(s) for this line
     const matching = inputs.filter(inp => inp.lineNum == null || inp.lineNum === Number(line.LineNum));
     let updated = line;
     for (const inp of matching) {
