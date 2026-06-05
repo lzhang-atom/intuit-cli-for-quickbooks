@@ -61,8 +61,8 @@ npx intuit-cli --help
 <summary>Install from source</summary>
 
 ```bash
-git clone https://github.com/IntuitDeveloper/intuit-developer-cli.git
-cd intuit-developer-cli
+git clone https://github.com/intuit/intuit-cli.git
+cd intuit-cli
 npm install
 npm run build
 npm link
@@ -138,8 +138,6 @@ Every error is human-formatted on stderr and includes an `intuit_tid` trace ID. 
 - `429 Too Many Requests` → rate limited; the CLI retries automatically with backoff
 - `404 Not Found` → entity ID doesn't exist on this realm
 - `400` with `Fault.Error` → validation failure; the message identifies the bad field
-
-For machine-parseable error classification, agent toolkits sit on top of the CLI and translate stderr into typed error variants. See the agent-toolkit pattern under [`@intuit/qbo-ies-agent-toolkit`](https://github.com/IntuitDeveloper/qbo-ies-agent-toolkit) (when published).
 
 ### Event-driven agents
 
