@@ -1,6 +1,6 @@
 {
   "name": "intuit-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CLI for Intuit QuickBooks Online APIs",
   "author": "Intuit",
   "license": "Apache-2.0",
