@@ -1,4 +1,18 @@
 import { tokenStore, profileStore } from "../lib/token-store.js";
+// Map known Premium scope strings back to friendly names for display.
+const PREMIUM_SCOPE_TO_LABEL = {
+    "project-management.project": "projects",
+    "app-foundations.custom-field-definitions": "custom-fields",
+    "app-foundations.custom-dimensions.read": "dimensions",
+};
+function classifyScopes(requestedScopes) {
+    if (!requestedScopes || requestedScopes.length === 0)
+        return { requested: [], premium: [] };
+    const premium = requestedScopes
+        .filter((s) => PREMIUM_SCOPE_TO_LABEL[s] !== undefined)
+        .map((s) => PREMIUM_SCOPE_TO_LABEL[s]);
+    return { requested: requestedScopes, premium };
+}
 export function authStatus(profile, options = {}) {
     const envProfile = process.env.INTUIT_PROFILE;
     const active = profileStore.getActive();
@@ -8,6 +22,7 @@ export function authStatus(profile, options = {}) {
     const isActive = p === active;
     // Derive the unified state once; both JSON and human paths use it.
     const state = computeState(token, info?.env);
+    const scopeInfo = classifyScopes(token?.requestedScopes);
     if (options.json) {
         const json = {
             profile: p,
@@ -24,6 +39,8 @@ export function authStatus(profile, options = {}) {
             refreshToken: {
                 status: token?.refresh_token ? "present" : "missing",
             },
+            requestedScopes: scopeInfo.requested.length > 0 ? scopeInfo.requested : null,
+            premiumScopes: scopeInfo.premium,
             nextAction: state.nextAction,
         };
         console.log(JSON.stringify(json, null, 2));
@@ -68,6 +85,11 @@ export function authStatus(profile, options = {}) {
     const refreshTokenLabel = token.refresh_token
         ? "Present (rotates on each use, ~101d max)"
         : "Missing";
+    const scopesLabel = scopeInfo.requested.length === 0
+        ? "Unknown (token was issued before scope tracking)"
+        : scopeInfo.premium.length === 0
+            ? "standard (no Premium APIs)"
+            : `standard + Premium: ${scopeInfo.premium.join(", ")}`;
     const rows = [
         { key: "Profile", value: `${p}${isActive ? " (active)" : ""}`, from: profileSource },
         { key: "Environment", value: info?.env || "unknown", from: "profiles.json" },
@@ -75,6 +97,7 @@ export function authStatus(profile, options = {}) {
         { key: "Credentials", value: hasEnvCreds || hasLegacyCreds ? "Configured" : "Not found", from: credsSource },
         { key: "Access Token", value: accessTokenLabel, from: `~/.config/intuit-cli/${p}.tokens.enc.json` },
         { key: "Refresh Token", value: refreshTokenLabel, from: `~/.config/intuit-cli/${p}.tokens.enc.json` },
+        { key: "Scopes", value: scopesLabel, from: `~/.config/intuit-cli/${p}.tokens.enc.json` },
     ];
     const maxKey = Math.max(...rows.map(r => r.key.length));
     const maxVal = Math.max(...rows.map(r => r.value.length));

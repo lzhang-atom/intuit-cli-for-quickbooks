@@ -143,6 +143,9 @@ export const tokenStore = {
             refresh_token: authResponse.token.refresh_token,
             realmId: token.realmId,
             expires_at: Date.now() + 3600 * 1000,
+            // Refresh tokens inherit the original token's scope set — preserve so
+            // auth status / Premium checks survive auto-refresh.
+            requestedScopes: token.requestedScopes,
         };
         this.set(refreshed, p);
         console.log("Token refreshed automatically.");

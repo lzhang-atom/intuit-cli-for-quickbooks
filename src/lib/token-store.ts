@@ -11,6 +11,13 @@ export type TokenData = {
   refresh_token?: string;
   realmId?: string;
   expires_at?: number;
+  /**
+   * Full list of OAuth scope strings requested at login time. Intuit's OAuth
+   * response doesn't return a granted-scope field, so we track what we asked
+   * for instead. If a scope wasn't granted, the OAuth request would have
+   * failed before this token was created.
+   */
+  requestedScopes?: string[];
 };
 
 type EncryptedPayload = {
@@ -192,6 +199,9 @@ export const tokenStore = {
       refresh_token: authResponse.token.refresh_token,
       realmId: token.realmId,
       expires_at: Date.now() + 3600 * 1000,
+      // Refresh tokens inherit the original token's scope set — preserve so
+      // auth status / Premium checks survive auto-refresh.
+      requestedScopes: token.requestedScopes,
     };
     this.set(refreshed, p);
     console.log("Token refreshed automatically.");

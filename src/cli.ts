@@ -139,7 +139,7 @@ auth.command("login").description("Login via Intuit OAuth")
   .option("-p, --profile <name>", "A local name for this QuickBooks connection", "default")
   .option("-e, --env <environment>", "Environment (sandbox or production)")
   .option("-r, --redirect-uri <uri>", "Redirect URI (required for production)")
-  .option("-s, --scopes <scopes>", "Space-separated Premium API scopes to add (e.g. 'project-management.project app-foundations.custom-field-definitions')")
+  .option("-s, --scopes <scopes>", "Space-separated raw OAuth scopes to add (advanced). Premium scopes are normally configured in .env via INTUIT_<env>_PREMIUM_SCOPES.")
   .action(async (options) => {
     const env: string = options.env || process.env.INTUIT_ENV || "";
     if (!env) {

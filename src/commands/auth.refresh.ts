@@ -21,6 +21,7 @@ export async function authRefresh(profile?: string) {
     refresh_token: authResponse.token.refresh_token,
     realmId: token.realmId,
     expires_at: Date.now() + 3600 * 1000,
+    requestedScopes: token.requestedScopes,
   }, p);
 
   console.log(`Token refreshed successfully. (Profile: ${p})`);
