@@ -79,6 +79,7 @@ import { projectsUpdate } from "./commands/projects.update.js";
 import { projectsDelete } from "./commands/projects.delete.js";
 import { customFieldsList } from "./commands/custom-fields.list.js";
 import { customFieldsCreate } from "./commands/custom-fields.create.js";
+import { customFieldsUpdate } from "./commands/custom-fields.update.js";
 import { customFieldsAttach } from "./commands/custom-fields.attach.js";
 import { dimensionsList } from "./commands/dimensions.list.js";
 import { dimensionsValues } from "./commands/dimensions.values.js";
@@ -978,7 +979,7 @@ projects.command("list").description("List projects")
     .option("--csv", "Output as CSV")
     .option("--filter-start <date>", "Filter by due date start (ISO 8601)")
     .option("--filter-end <date>", "Filter by due date end (ISO 8601)")
-    .option("--status <status>", "Filter by status (OPEN, IN_PROGRESS, COMPLETED)")
+    .option("--status <status>", "Filter by status (OPEN, IN_PROGRESS, COMPLETE)")
     .option("-l, --limit <n>", "Max results", "50")
     .option("-a, --all", "Fetch all pages")
     .action(async (options) => {
@@ -1005,7 +1006,7 @@ projects.command("create").description("Create a project")
     .option("--due-date <date>", "Due date (ISO 8601, e.g. 2024-12-31T00:00:00.000Z)")
     .option("--start-date <date>", "Start date (ISO 8601)")
     .option("--customer-id <id>", "Customer ID")
-    .option("--status <status>", "Status (OPEN, IN_PROGRESS, COMPLETED)")
+    .option("--status <status>", "Status (OPEN, IN_PROGRESS, COMPLETE)")
     .option("--description <text>", "Project description")
     .option("--priority <n>", "Priority (integer)")
     .option("--file <path>", "JSON file with full project input")
@@ -1032,7 +1033,7 @@ projects.command("update").description("Update a project")
     .option("--due-date <date>", "New due date (ISO 8601)")
     .option("--start-date <date>", "New start date (ISO 8601)")
     .option("--customer-id <id>", "Customer ID")
-    .option("--status <status>", "New status (OPEN, IN_PROGRESS, COMPLETED)")
+    .option("--status <status>", "New status (OPEN, IN_PROGRESS, COMPLETE)")
     .option("--description <text>", "New description")
     .option("--priority <n>", "New priority")
     .option("--completion-rate <n>", "Completion rate (0-100)")
@@ -1126,9 +1127,10 @@ customFields.command("create").description("Create a custom field definition")
     .option("-p, --profile <name>", "Profile to use")
     .option("--label <label>", "Field label")
     .option("--data-type <type>", "Data type (STRING, NUMBER, DATE, BOOLEAN, STRING_LIST)")
-    .option("--scope <scopes>", "Comma-separated or repeated. Aliases: transactions, contacts, projects. Or pass a raw path like /transactions/Transaction. Default: transactions.", (val, prev = []) => prev.concat(val.split(",")))
+    .option("--category <category>", "Field category (required). One of: customer, vendor, project, transaction. Mirrors the QBO UI category picker — immutable after create.")
+    .option("--forms <forms>", "Forms the field appears on. Comma-separated and/or repeatable (--forms invoice,estimate OR --forms invoice --forms estimate). Required for every category. Valid: invoice, estimate, sales-receipt, credit-memo, refund-receipt, sales-order, bill, expense, check, purchase-order, vendor-credit, credit-card-credit.", (val, prev = []) => prev.concat(val.split(",").map((s) => s.trim()).filter(Boolean)))
     .option("--option <value>", "Dropdown option value (repeatable). Only valid with --data-type STRING_LIST.", (val, prev = []) => prev.concat([val]))
-    .option("--entity <entity>", "[deprecated] Use --scope instead. Maps to a raw associatedEntity value.")
+    .option("--entity <entity>", "[deprecated] Use --category instead. Maps to a raw associatedEntity value.")
     .option("--file <path>", "JSON file with full input ({ \"input\": {...} } or just the input object)")
     .option("--dry-run", "Preview the mutation variables without making changes")
     .option("--idempotency-tag <value>", "Accepted for command symmetry; not applied to CustomFieldDefinition (no taggable field)")
@@ -1136,12 +1138,34 @@ customFields.command("create").description("Create a custom field definition")
     await customFieldsCreate({
         label: options.label,
         dataType: options.dataType,
-        scope: options.scope,
+        category: options.category,
+        transactions: options.forms,
         options: options.option,
         entity: options.entity,
         file: options.file,
         dryRun: !!options.dryRun,
         idempotencyTag: options.idempotencyTag,
+    }, options.profile).catch(handleError);
+});
+customFields.command("update").description("Update a custom field definition (rename, activate/deactivate, or add forms)")
+    .argument("<id>", "Custom field ID (e.g. udcf_1000000001)")
+    .option("-p, --profile <name>", "Profile to use")
+    .option("--label <label>", "New label")
+    .option("--active <bool>", "Set active (true) or inactive (false). Use false to soft-delete.", (val) => val === "true")
+    .option("--category <category>", "[immutable] Provided only to surface a clear error — category cannot be changed after create.")
+    .option("--data-type <type>", "[immutable] Provided only to surface a clear error — data type cannot be changed after create.")
+    .option("--forms <forms>", "Forms the field appears on. Comma-separated and/or repeatable. Server appends to existing list; cannot remove via this flag.", (val, prev = []) => prev.concat(val.split(",").map((s) => s.trim()).filter(Boolean)))
+    .option("--file <path>", "JSON file with full update input ({ \"input\": {...} } or just the input object)")
+    .option("--dry-run", "Preview the mutation variables without making changes")
+    .action(async (id, options) => {
+    await customFieldsUpdate(id, {
+        label: options.label,
+        active: options.active,
+        category: options.category,
+        dataType: options.dataType,
+        transactions: options.forms,
+        file: options.file,
+        dryRun: !!options.dryRun,
     }, options.profile).catch(handleError);
 });
 // Dimensions commands (GraphQL)

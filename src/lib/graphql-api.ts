@@ -55,13 +55,32 @@ export async function graphqlFetch(
 
   if (!res.ok) {
     const intuitTid = res.headers.get("intuit_tid") || "unknown";
-    throw new Error(`GraphQL request failed: ${res.status} ${res.statusText}\n  intuit_tid: ${intuitTid}`);
+    let detail = "";
+    try {
+      const errBody = await res.text();
+      if (errBody) {
+        try {
+          const parsed = JSON.parse(errBody) as { errors?: { message: string }[] };
+          if (parsed.errors && parsed.errors.length > 0) {
+            detail = `\n  GraphQL errors: ${parsed.errors.map(e => e.message).join("; ")}`;
+          } else {
+            detail = `\n  body: ${errBody}`;
+          }
+        } catch {
+          detail = `\n  body: ${errBody}`;
+        }
+      }
+    } catch {
+      // ignore body-read failures
+    }
+    throw new Error(`GraphQL request failed: ${res.status} ${res.statusText}\n  intuit_tid: ${intuitTid}${detail}`);
   }
 
   const json = await res.json() as { data?: Record<string, unknown>; errors?: { message: string }[] };
 
   if (json.errors && json.errors.length > 0) {
-    throw new Error(`GraphQL error: ${json.errors[0].message}`);
+    const intuitTid = res.headers.get("intuit_tid") || "unknown";
+    throw new Error(`GraphQL error: ${json.errors.map(e => e.message).join("; ")}\n  intuit_tid: ${intuitTid}`);
   }
 
   return json.data || {};

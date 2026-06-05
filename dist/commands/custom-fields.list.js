@@ -15,11 +15,19 @@ query appFoundationsCustomFieldDefinitions {
           associatedEntity
           active
           associationCondition
+          validationOptions { required }
+          allowedOperations
+          subAssociations {
+            associatedEntity
+            active
+            allowedOperations
+          }
         }
         dropDownOptions {
           id
           value
           active
+          order
         }
       }
     }

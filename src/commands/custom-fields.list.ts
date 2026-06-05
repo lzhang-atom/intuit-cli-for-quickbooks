@@ -16,25 +16,41 @@ query appFoundationsCustomFieldDefinitions {
           associatedEntity
           active
           associationCondition
+          validationOptions { required }
+          allowedOperations
+          subAssociations {
+            associatedEntity
+            active
+            allowedOperations
+          }
         }
         dropDownOptions {
           id
           value
           active
+          order
         }
       }
     }
   }
 }`;
 
+type SubAssoc = { associatedEntity: string; active: boolean; allowedOperations?: string[] };
 type CfNode = {
   id: string;
   legacyIDV2?: string;
   label: string;
   dataType?: string;
   active?: boolean;
-  associations?: { associatedEntity: string; active: boolean; associationCondition?: string }[];
-  dropDownOptions?: { id: string; value: string; active: boolean }[];
+  associations?: {
+    associatedEntity: string;
+    active: boolean;
+    associationCondition?: string;
+    validationOptions?: { required: boolean };
+    allowedOperations?: string[];
+    subAssociations?: SubAssoc[];
+  }[];
+  dropDownOptions?: { id: string; value: string; active: boolean; order?: number }[];
 };
 
 export async function customFieldsList(options: { json?: boolean; csv?: boolean }, profile?: string) {

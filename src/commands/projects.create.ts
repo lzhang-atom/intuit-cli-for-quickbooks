@@ -56,6 +56,9 @@ export async function projectsCreate(
   } else {
     if (!options.name) throw new Error("--name is required (or use --file)");
     if (!options.dueDate) throw new Error("--due-date is required (or use --file)");
+    if (options.status && !["OPEN", "IN_PROGRESS", "COMPLETE"].includes(options.status)) {
+      throw new Error(`--status must be one of OPEN, IN_PROGRESS, COMPLETE (got ${JSON.stringify(options.status)}).`);
+    }
 
     variables = {
       name: options.name,

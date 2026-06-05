@@ -57,6 +57,10 @@ export async function projectsUpdate(
     const raw = fs.readFileSync(options.file, "utf-8");
     variables = { id, ...JSON.parse(raw) };
   } else {
+    if (options.status && !["OPEN", "IN_PROGRESS", "COMPLETE"].includes(options.status)) {
+      throw new Error(`--status must be one of OPEN, IN_PROGRESS, COMPLETE (got ${JSON.stringify(options.status)}).`);
+    }
+
     variables = {
       id,
       ...(options.name ? { name: options.name } : {}),

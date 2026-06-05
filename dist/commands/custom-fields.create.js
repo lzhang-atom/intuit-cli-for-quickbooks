@@ -27,17 +27,38 @@ mutation appFoundationsCreateCustomFieldDefinition(
     }
   }
 }`;
-// Map partner-friendly scope aliases to the path values the API stores.
-// Pass-through preserves any other path (e.g., /inventory/Item) without
-// requiring a CLI release.
-const SCOPE_ALIASES = {
-    transactions: "/transactions/Transaction",
-    contacts: "/network/Contact",
-    projects: "/work/Project",
+// Category names mirror the singular categories the QBO UI presents:
+// "Customer", "Vendor", "Project", "Transaction". Each maps to the API's
+// parent associatedEntity path. For category=transaction, the user must also
+// supply --form to pick which form types the field appears on (matches the
+// UI's second-step form picker).
+const CATEGORY_TO_PARENT_ENTITY = {
+    customer: "/network/Contact",
+    vendor: "/network/Contact",
+    project: "/work/Project",
+    transaction: "/transactions/Transaction",
 };
-function resolveScope(value) {
-    return SCOPE_ALIASES[value] ?? value;
-}
+// Subtypes for non-transaction categories are fixed.
+const CATEGORY_FIXED_SUBTYPE = {
+    customer: "CUSTOMER",
+    vendor: "VENDOR",
+    project: "PROJECT",
+};
+// Friendly transaction names (matching QBO UI labels) → API subtype enum.
+const TRANSACTION_TO_SUBTYPE = {
+    "invoice": "SALE_INVOICE",
+    "estimate": "SALE_ESTIMATE",
+    "sales-receipt": "SALE",
+    "credit-memo": "SALE_CREDIT",
+    "refund-receipt": "SALE_REFUND",
+    "sales-order": "SALE_ORDER",
+    "bill": "PURCHASE_BILL",
+    "expense": "PURCHASE",
+    "check": "PURCHASE_CHECK",
+    "purchase-order": "PURCHASE_ORDER",
+    "vendor-credit": "PURCHASE_CREDIT",
+    "credit-card-credit": "PURCHASE_CREDIT_CARD_CREDIT",
+};
 const VALID_DATA_TYPES = new Set(["STRING", "NUMBER", "DATE", "BOOLEAN", "STRING_LIST"]);
 export async function customFieldsCreate(options, profile) {
     let input;
@@ -48,10 +69,29 @@ export async function customFieldsCreate(options, profile) {
         input = parsed.input ?? parsed;
     }
     else {
+        // Collect all required-flag issues at once so the user sees the full picture
+        // in one error instead of fixing flags one at a time.
+        const missing = [];
         if (!options.label)
-            throw new Error("--label is required (or use --file)");
+            missing.push("--label <text>");
         if (!options.dataType)
-            throw new Error("--data-type is required (or use --file)");
+            missing.push("--data-type <STRING|NUMBER|DATE|BOOLEAN|STRING_LIST>");
+        if (!options.category && !options.entity) {
+            missing.push("--category <customer|vendor|project|transaction>");
+        }
+        if (!options.transactions || options.transactions.length === 0) {
+            missing.push("--forms <form> (repeatable)");
+        }
+        if (missing.length > 0) {
+            const formList = Object.keys(TRANSACTION_TO_SUBTYPE).join(", ");
+            throw new Error(`Missing required flag(s):\n  ${missing.join("\n  ")}\n\n` +
+                `Valid --forms values: ${formList}\n` +
+                `Optional: --option (for STRING_LIST dropdown values).\n` +
+                `Or use --file <path> with the full GraphQL input.\n\n` +
+                `Example:\n` +
+                `  intuit custom-fields create --label "PO Number" --data-type STRING \\\n` +
+                `    --category transaction --forms invoice,estimate`);
+        }
         const dataType = options.dataType.toUpperCase();
         if (!VALID_DATA_TYPES.has(dataType)) {
             throw new Error(`Invalid --data-type "${options.dataType}". Valid: ${[...VALID_DATA_TYPES].join(", ")}.`);
@@ -64,30 +104,60 @@ export async function customFieldsCreate(options, profile) {
         if (!isList && options.options && options.options.length > 0) {
             throw new Error("--option can only be used with --data-type STRING_LIST.");
         }
-        // Resolve scope. Sources, in order of precedence:
-        //   1. --scope (preferred; supports aliases + raw paths, repeatable)
-        //   2. --entity (deprecated; raw passthrough for back-compat)
-        //   3. default: transactions
-        let associatedEntities;
-        if (options.scope && options.scope.length > 0) {
-            associatedEntities = options.scope.map((s) => resolveScope(s.trim())).filter(Boolean);
+        // Resolve category. Mirrors the UI's single radio-button picker — required.
+        const category = (options.category ?? options.entity).trim();
+        if (options.entity) {
+            console.error("[note] --entity is deprecated; use --category (one of: customer, vendor, project, transaction).");
         }
-        else if (options.entity) {
-            console.error("[note] --entity is deprecated; use --scope (e.g. --scope transactions). The raw value will continue to work.");
-            associatedEntities = [options.entity];
+        const parentEntity = CATEGORY_TO_PARENT_ENTITY[category];
+        if (!parentEntity) {
+            throw new Error(`Unknown --category "${category}". Valid: ${Object.keys(CATEGORY_TO_PARENT_ENTITY).join(", ")}. ` +
+                `For raw control over associatedEntity and subAssociations, use --file.`);
         }
-        else {
-            associatedEntities = [SCOPE_ALIASES.transactions];
+        // --transactions presence was validated upfront with the other required
+        // flags; here we just check the values are recognized.
+        const unknownTxns = options.transactions.filter((t) => !TRANSACTION_TO_SUBTYPE[t]);
+        if (unknownTxns.length > 0) {
+            throw new Error(`Unknown --forms value(s): ${unknownTxns.join(", ")}. ` +
+                `Valid: ${Object.keys(TRANSACTION_TO_SUBTYPE).join(", ")}.`);
         }
+        const transactionSubtypes = options.transactions.map((t) => TRANSACTION_TO_SUBTYPE[t]);
+        const associations = [];
+        // For customer/vendor/project, add the category-specific association first.
+        if (category !== "transaction") {
+            associations.push({
+                associatedEntity: parentEntity,
+                active: true,
+                associationCondition: "INCLUDED",
+                validationOptions: { required: false },
+                allowedOperations: [],
+                subAssociations: [{
+                        associatedEntity: CATEGORY_FIXED_SUBTYPE[category],
+                        active: true,
+                        allowedOperations: [],
+                    }],
+            });
+        }
+        // Every field gets a /transactions/Transaction association with the
+        // chosen form subtypes — true even for category=customer/vendor/project,
+        // matching what the QBO UI generates.
+        associations.push({
+            associatedEntity: "/transactions/Transaction",
+            active: true,
+            associationCondition: "INCLUDED",
+            validationOptions: { required: false },
+            allowedOperations: [],
+            subAssociations: transactionSubtypes.map((sub) => ({
+                associatedEntity: sub,
+                active: true,
+                allowedOperations: [],
+            })),
+        });
         input = {
             label: options.label,
             dataType,
             active: true,
-            associations: associatedEntities.map((associatedEntity) => ({
-                associatedEntity,
-                active: true,
-                associationCondition: "INCLUDED",
-            })),
+            associations,
         };
         if (isList && options.options) {
             input.dropDownOptions = options.options.map((value) => ({

@@ -40,6 +40,9 @@ export async function projectsUpdate(id, options, profile) {
         variables = { id, ...JSON.parse(raw) };
     }
     else {
+        if (options.status && !["OPEN", "IN_PROGRESS", "COMPLETE"].includes(options.status)) {
+            throw new Error(`--status must be one of OPEN, IN_PROGRESS, COMPLETE (got ${JSON.stringify(options.status)}).`);
+        }
         variables = {
             id,
             ...(options.name ? { name: options.name } : {}),
