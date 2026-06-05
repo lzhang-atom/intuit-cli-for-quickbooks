@@ -43,22 +43,23 @@ export async function intuitFetch(path: string, init?: RequestInit, profile?: st
 
   const start = Date.now();
   let res = await makeRequest(token, url, init);
-  debugResponse(res.status, res.statusText, res.headers, Date.now() - start);
+  let bodyText = await res.text();
+  debugResponse(res.status, res.statusText, res.headers, Date.now() - start, bodyText);
 
   if (res.status === 401 && token.refresh_token) {
     debug("Access token expired, refreshing...");
     token = await tokenStore.refreshToken(token, p);
     const start2 = Date.now();
     res = await makeRequest(token, url, init);
-    debugResponse(res.status, res.statusText, res.headers, Date.now() - start2);
+    bodyText = await res.text();
+    debugResponse(res.status, res.statusText, res.headers, Date.now() - start2, bodyText);
   }
 
   if (!res.ok) {
     const intuitTid = res.headers.get("intuit_tid") || "unknown";
-    const body = await res.text();
     let message = `${res.status} ${res.statusText}`;
     try {
-      const parsed = JSON.parse(body);
+      const parsed = JSON.parse(bodyText);
       const fault = parsed?.Fault?.Error?.[0];
       if (fault) {
         message = `${res.status} ${fault.Message}${fault.Detail ? ` — ${fault.Detail}` : ""}`;
@@ -66,16 +67,28 @@ export async function intuitFetch(path: string, init?: RequestInit, profile?: st
     } catch {
       // use default status message
     }
-    debug(`API error response body: ${body}`);
     throw new Error(`Intuit API error: ${message}\n  intuit_tid: ${intuitTid}`);
   }
 
+  // Re-attach the consumed body so callers using res.json() still work without
+  // a second network round-trip. node-fetch / undici don't allow re-reading a
+  // consumed body, so we attach a parsed-JSON shortcut here.
+  (res as unknown as { _cachedBody: string })._cachedBody = bodyText;
   return res;
+}
+
+function readCachedBody(res: Response): string {
+  const cached = (res as unknown as { _cachedBody?: string })._cachedBody;
+  if (cached === undefined) {
+    throw new Error("intuit-api: response body was not cached — this is a CLI bug");
+  }
+  return cached;
 }
 
 export async function intuitGet(path: string, profile?: string) {
   const res = await intuitFetch(path, undefined, profile);
-  return res.json();
+  const text = readCachedBody(res);
+  return text ? JSON.parse(text) : {};
 }
 
 export async function intuitPost(entity: string, body: Record<string, unknown>, profile?: string) {
@@ -84,12 +97,14 @@ export async function intuitPost(entity: string, body: Record<string, unknown>, 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }, profile);
-  return res.json();
+  const text = readCachedBody(res);
+  return text ? JSON.parse(text) : {};
 }
 
 export async function intuitQuery(query: string, profile?: string) {
   const res = await intuitFetch(`query?query=${encodeURIComponent(query)}`, undefined, profile);
-  return res.json();
+  const text = readCachedBody(res);
+  return text ? JSON.parse(text) : {};
 }
 
 const PAGE_SIZE = 100;

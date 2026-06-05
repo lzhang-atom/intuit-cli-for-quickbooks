@@ -56,12 +56,12 @@ describe("debugRequest", () => {
   });
 
   it("truncates long request bodies", () => {
-    const longBody = "x".repeat(600);
+    // Body cap is 8192 chars; use a body well past that to trigger truncation.
+    const longBody = "x".repeat(10000);
     debugRequest("POST", "https://api.example.com/test", {}, longBody);
 
     const calls = stderrSpy.mock.calls.map((c: unknown[]) => c[0]).join("");
-    expect(calls).toContain("...");
-    // Body output should be truncated at 500 chars
-    expect(calls).not.toContain("x".repeat(600));
+    expect(calls).toContain("truncated");
+    expect(calls).not.toContain("x".repeat(10000));
   });
 });

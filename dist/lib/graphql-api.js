@@ -31,45 +31,45 @@ export async function graphqlFetch(query, variables, operationName, profile) {
     debugRequest("POST", url, { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" }, bodyStr);
     const start = Date.now();
     let res = await makeGqlRequest(token, url, bodyStr);
-    debugResponse(res.status, res.statusText, res.headers, Date.now() - start);
+    let bodyText = await res.text();
+    debugResponse(res.status, res.statusText, res.headers, Date.now() - start, bodyText);
     if (res.status === 401 && token.refresh_token) {
         debug("Access token expired, refreshing...");
         token = await tokenStore.refreshToken(token, p);
         const start2 = Date.now();
         res = await makeGqlRequest(token, url, bodyStr);
-        debugResponse(res.status, res.statusText, res.headers, Date.now() - start2);
+        bodyText = await res.text();
+        debugResponse(res.status, res.statusText, res.headers, Date.now() - start2, bodyText);
     }
-    if (!res.ok) {
-        const intuitTid = res.headers.get("intuit_tid") || "unknown";
-        let detail = "";
+    const intuitTid = res.headers.get("intuit_tid") || "unknown";
+    // Try to parse as JSON; some failure paths return non-JSON (HTML error pages,
+    // empty bodies on 5xx). Surface the raw body if so.
+    let parsed = null;
+    if (bodyText) {
         try {
-            const errBody = await res.text();
-            if (errBody) {
-                try {
-                    const parsed = JSON.parse(errBody);
-                    if (parsed.errors && parsed.errors.length > 0) {
-                        detail = `\n  GraphQL errors: ${parsed.errors.map(e => e.message).join("; ")}`;
-                    }
-                    else {
-                        detail = `\n  body: ${errBody}`;
-                    }
-                }
-                catch {
-                    detail = `\n  body: ${errBody}`;
-                }
-            }
+            parsed = JSON.parse(bodyText);
         }
         catch {
-            // ignore body-read failures
+            // Not JSON — handled below.
+        }
+    }
+    if (!res.ok) {
+        let detail = "";
+        if (parsed?.errors && parsed.errors.length > 0) {
+            detail = `\n  GraphQL errors: ${parsed.errors.map(e => e.message).join("; ")}`;
+        }
+        else if (bodyText) {
+            detail = `\n  body: ${bodyText}`;
         }
         throw new Error(`GraphQL request failed: ${res.status} ${res.statusText}\n  intuit_tid: ${intuitTid}${detail}`);
     }
-    const json = await res.json();
-    if (json.errors && json.errors.length > 0) {
-        const intuitTid = res.headers.get("intuit_tid") || "unknown";
-        throw new Error(`GraphQL error: ${json.errors.map(e => e.message).join("; ")}\n  intuit_tid: ${intuitTid}`);
+    // HTTP 200 with errors in the body — GraphQL's partial-success / authorization
+    // path. Treat it as a failure too; the caller almost never wants the partial
+    // data without knowing something went wrong.
+    if (parsed?.errors && parsed.errors.length > 0) {
+        throw new Error(`GraphQL error: ${parsed.errors.map(e => e.message).join("; ")}\n  intuit_tid: ${intuitTid}`);
     }
-    return json.data || {};
+    return parsed?.data || {};
 }
 export async function graphqlQuery(query, variables, operationName, profile) {
     return graphqlFetch(query, variables, operationName, profile);
