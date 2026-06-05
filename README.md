@@ -54,6 +54,8 @@ A step-by-step walkthrough including portal setup is in [`docs/quickstart.rst`](
 
 ## Configuration
 
+Use `intuit auth configure` for interactive setup of credentials.
+
 Credentials and Premium scope opt-in live in `.env`:
 
 ```
@@ -68,7 +70,7 @@ INTUIT_SANDBOX_PREMIUM_SCOPES=project-management.project app-foundations.custom-
 INTUIT_PROD_PREMIUM_SCOPES=
 ```
 
-See [`.env.example`](.env.example) for the full list. Use `intuit auth configure` for interactive setup of credentials.
+See [`.env.example`](.env.example) for the full list. 
 
 ### Profiles
 
