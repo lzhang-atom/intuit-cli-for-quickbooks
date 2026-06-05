@@ -23,7 +23,8 @@ Or run without installing:
 npx intuit-cli --help
 ```
 
-### Install from source
+<details>
+<summary>Install from source</summary>
 
 ```bash
 git clone https://github.com/intuit/intuit-cli.git
@@ -32,6 +33,7 @@ npm install
 npm run build
 npm link
 ```
+</details>
 
 ## Prerequisites
 
@@ -215,14 +217,7 @@ intuit customers list --debug
 
 **Global flags:** `--debug`, `--help`, `--version`
 
-Use `--help` on any command: `intuit invoices create --help`. Sample JSON payloads live in [`examples/`](examples/).
-
-### Shell completions
-
-```bash
-eval "$(intuit completions bash)"   # add to ~/.bashrc
-eval "$(intuit completions zsh)"    # add to ~/.zshrc
-```
+Use `--help` on any command: `intuit invoices create --help`. Sample JSON payloads live in [`examples/`](examples/). Shell completion scripts are available via `intuit completions bash` / `zsh`.
 
 ## For AI agents
 
@@ -275,19 +270,13 @@ The `--where` flag accepts [QBO query language](https://developer.intuit.com/app
 
 `--order-by "DisplayName ASC"` for sort order.
 
-## Rate limits
-
-QBO enforces 500 requests/min and 10 concurrent per realm. The CLI retries `429` responses with exponential backoff. See [Intuit's throttling documentation](https://developer.intuit.com/app/developer/qbo/docs/learn/rest-api-features#limits-and-throttles).
-
 ## Environment variables
+
+Credentials and Premium scopes are covered under [Configuration](#configuration). A few additional vars:
 
 | Variable | Description |
 |---|---|
-| `INTUIT_SANDBOX_CLIENT_ID` / `_SECRET` | Sandbox OAuth credentials |
-| `INTUIT_PROD_CLIENT_ID` / `_SECRET` | Production OAuth credentials |
-| `INTUIT_SANDBOX_PREMIUM_SCOPES` | Sandbox Premium scopes (space- or comma-separated) |
-| `INTUIT_PROD_PREMIUM_SCOPES` | Production Premium scopes |
-| `INTUIT_PROFILE` | Override the active profile (useful in CI/CD) |
+| `INTUIT_PROFILE` | Override the active profile (useful in CI/CD and scripts) |
 | `INTUIT_WEBHOOK_VERIFIER_TOKEN` | Default verifier token for `webhooks listen` |
 | `NODE_EXTRA_CA_CERTS` | Path to custom CA bundle (corporate proxies) |
 
@@ -305,13 +294,7 @@ QBO enforces 500 requests/min and 10 concurrent per realm. The CLI retries `429`
 
 Use `--debug` for full HTTP request/response logging. Share the `intuit_tid` value with Intuit support for escalation.
 
-## Uninstall
-
-```bash
-intuit auth logout                                          # clear tokens
-rm -rf ~/.config/intuit-cli                                 # remove all CLI data
-security delete-generic-password -s intuit-cli 2>/dev/null  # macOS keychain cleanup
-```
+To uninstall fully: `npm uninstall -g intuit-cli && rm -rf ~/.config/intuit-cli` (on macOS, also `security delete-generic-password -s intuit-cli` to clear the keychain entry).
 
 ## Development
 
