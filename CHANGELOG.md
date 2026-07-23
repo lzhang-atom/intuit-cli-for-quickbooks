@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-07-23
+
+### Changed
+
+- Repository renamed to `intuit/intuit-cli-for-quickbooks`. `package.json` URLs and README install instructions updated to the new canonical URL (GitHub redirects the old URL transparently).
+
+### Security
+
+- Bumped transitive dependencies via `npm audit fix`: `axios` to 1.17.0 and `follow-redirects` to 1.16.0, clearing one high and one moderate severity advisory.
+
+## [0.2.3] - 2026-06-05
+
 ### Added
 
 - Optional Premium API scope configuration via `.env`: set `INTUIT_SANDBOX_PREMIUM_SCOPES` or `INTUIT_PROD_PREMIUM_SCOPES` to a space- or comma-separated list of raw OAuth scope strings (e.g. `project-management.project`). Apps without Premium approval should leave it empty.
@@ -26,7 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dimensions attach` filters out non-item lines (SubTotal, group summaries) that can't hold dimensions. The dry-run previously displayed them as `Line undefined`.
 - GraphQL error responses with HTTP 200 status are now surfaced as errors. Previously the CLI silently returned partial data when the response body contained an `errors` field.
 - `package.json` repository, homepage, and bugs URLs corrected to `github.com/intuit/intuit-cli`.
-- Repository renamed to `intuit/intuit-cli-for-quickbooks`. `package.json` URLs and README install instructions updated to the new canonical URL (GitHub redirects the old URL transparently).
 
 ### Fixed
 
