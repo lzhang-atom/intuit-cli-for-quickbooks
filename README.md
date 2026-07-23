@@ -27,8 +27,8 @@ npx intuit-cli --help
 <summary>Install from source</summary>
 
 ```bash
-git clone https://github.com/intuit/intuit-cli.git
-cd intuit-cli
+git clone https://github.com/intuit/intuit-cli-for-quickbooks.git
+cd intuit-cli-for-quickbooks
 npm install
 npm run build
 npm link

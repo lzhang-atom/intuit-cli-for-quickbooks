@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dimensions attach` filters out non-item lines (SubTotal, group summaries) that can't hold dimensions. The dry-run previously displayed them as `Line undefined`.
 - GraphQL error responses with HTTP 200 status are now surfaced as errors. Previously the CLI silently returned partial data when the response body contained an `errors` field.
 - `package.json` repository, homepage, and bugs URLs corrected to `github.com/intuit/intuit-cli`.
+- Repository renamed to `intuit/intuit-cli-for-quickbooks`. `package.json` URLs and README install instructions updated to the new canonical URL (GitHub redirects the old URL transparently).
 
 ### Fixed
 
