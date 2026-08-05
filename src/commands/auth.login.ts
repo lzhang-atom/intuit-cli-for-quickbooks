@@ -5,7 +5,9 @@ import { createOAuthClient } from "../lib/oauth.js";
 import { tokenStore, profileStore } from "../lib/token-store.js";
 import { configureTls } from "../lib/tls.js";
 
-const CALLBACK_TIMEOUT_MS = 120_000; // 2 minutes
+// Consent involves signing in, picking a company, and approving scopes, which
+// routinely runs past two minutes. Override with INTUIT_OAUTH_TIMEOUT_MS.
+const CALLBACK_TIMEOUT_MS = Number(process.env.INTUIT_OAUTH_TIMEOUT_MS) || 600_000; // 10 minutes
 const DEFAULT_REDIRECT_URI = "http://localhost:9477/callback";
 
 function waitForCallback(port: number, pathname: string, expectedState: string): Promise<string> {
