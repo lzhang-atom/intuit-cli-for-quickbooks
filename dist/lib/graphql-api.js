@@ -11,7 +11,7 @@ function getGqlUrl(profile) {
     const env = info?.env || "sandbox";
     return GQL_URLS[env] || GQL_URLS.sandbox;
 }
-async function makeGqlRequest(token, url, body) {
+async function makeGqlRequest(token, url, body, idempotent) {
     return fetchWithRetry(url, {
         method: "POST",
         headers: {
@@ -20,9 +20,17 @@ async function makeGqlRequest(token, url, body) {
             Accept: "application/json",
         },
         body,
-    });
+    }, { idempotent });
 }
-export async function graphqlFetch(query, variables, operationName, profile) {
+export async function graphqlFetch(query, variables, operationName, profile, 
+/**
+ * GraphQL sends reads and writes alike over POST, so the HTTP method says
+ * nothing about replay safety. Queries are safe to retry; mutations are not
+ * — the GraphQL endpoint has no `requestid` equivalent, so a replayed
+ * mutation can create a second project or custom field. Defaults to the
+ * safe assumption.
+ */
+idempotent = false) {
     configureTls();
     const p = profile || profileStore.getActive();
     let token = await tokenStore.getValidToken(p);
@@ -30,14 +38,14 @@ export async function graphqlFetch(query, variables, operationName, profile) {
     const bodyStr = JSON.stringify({ query, variables, operationName });
     debugRequest("POST", url, { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" }, bodyStr);
     const start = Date.now();
-    let res = await makeGqlRequest(token, url, bodyStr);
+    let res = await makeGqlRequest(token, url, bodyStr, idempotent);
     let bodyText = await res.text();
     debugResponse(res.status, res.statusText, res.headers, Date.now() - start, bodyText);
     if (res.status === 401 && token.refresh_token) {
         debug("Access token expired, refreshing...");
         token = await tokenStore.refreshToken(token, p);
         const start2 = Date.now();
-        res = await makeGqlRequest(token, url, bodyStr);
+        res = await makeGqlRequest(token, url, bodyStr, idempotent);
         bodyText = await res.text();
         debugResponse(res.status, res.statusText, res.headers, Date.now() - start2, bodyText);
     }
@@ -72,8 +80,10 @@ export async function graphqlFetch(query, variables, operationName, profile) {
     return parsed?.data || {};
 }
 export async function graphqlQuery(query, variables, operationName, profile) {
-    return graphqlFetch(query, variables, operationName, profile);
+    // Reads are safe to replay.
+    return graphqlFetch(query, variables, operationName, profile, true);
 }
 export async function graphqlMutation(mutation, variables, operationName, profile) {
-    return graphqlFetch(mutation, variables, operationName, profile);
+    // Writes are not replayable — no idempotency key exists for GraphQL.
+    return graphqlFetch(mutation, variables, operationName, profile, false);
 }

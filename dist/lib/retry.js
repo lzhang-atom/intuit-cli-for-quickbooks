@@ -1,8 +1,17 @@
 import { debug } from "./debug.js";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+// Methods with no side effects, so replaying one can never duplicate data.
+// Writes are safe to replay only when they carry an idempotency key the server
+// deduplicates on — see RetryOptions.idempotent.
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 function isRetryable(status) {
     return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+function isReplayable(init, options) {
+    if (options?.idempotent)
+        return true;
+    return SAFE_METHODS.has((init?.method || "GET").toUpperCase());
 }
 function getRetryDelay(attempt, res) {
     // Respect Retry-After header if present
@@ -18,13 +27,20 @@ function getRetryDelay(attempt, res) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-export async function fetchWithRetry(url, init) {
+export async function fetchWithRetry(url, init, options) {
     let lastError;
     let lastResponse;
+    const replayable = isReplayable(init, options);
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
             const res = await fetch(url, init);
             if (res.ok || !isRetryable(res.status) || attempt === MAX_RETRIES) {
+                return res;
+            }
+            // A non-replayable write may already have been committed server-side.
+            // Surface the error rather than risk duplicating the transaction.
+            if (!replayable) {
+                debug(`${res.status} on a non-idempotent request — not retrying (would risk a duplicate write).`);
                 return res;
             }
             lastResponse = res;
@@ -43,6 +59,13 @@ export async function fetchWithRetry(url, init) {
             lastError = err;
             if (attempt === MAX_RETRIES)
                 break;
+            // A dropped connection is exactly the case where the server may have
+            // committed the write and only the response was lost. Never replay a
+            // write that carries no idempotency key.
+            if (!replayable) {
+                debug("Network error on a non-idempotent request — not retrying (would risk a duplicate write).");
+                break;
+            }
             const delay = getRetryDelay(attempt);
             console.error(`Request failed. Retrying in ${delay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`);
             await sleep(delay);

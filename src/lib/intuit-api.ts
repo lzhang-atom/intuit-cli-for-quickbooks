@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { tokenStore, profileStore, type TokenData } from "./token-store.js";
 import { configureTls } from "./tls.js";
 import { fetchWithRetry } from "./retry.js";
@@ -8,13 +9,40 @@ const BASE_URLS: Record<string, string> = {
   production: "https://quickbooks.api.intuit.com/v3/company"
 };
 
+// Anything that isn't a plain read mutates data and needs an idempotency key.
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Attach QBO's `requestid` idempotency key to a write.
+ *
+ * Intuit deduplicates on (company, requestid): a repeat of the same requestid
+ * returns the original response instead of performing the write a second time.
+ * Without it, a create whose response is lost to a timeout or 5xx cannot be
+ * retried safely — the retry books a duplicate transaction.
+ *
+ * The key is generated once per logical request, so every retry attempt
+ * (network error, 5xx, and the 401-refresh replay) reuses the same URL and
+ * therefore the same key.
+ */
+function withRequestId(path: string, method: string): string {
+  if (!WRITE_METHODS.has(method.toUpperCase())) return path;
+  if (/[?&]requestid=/i.test(path)) return path; // caller supplied one
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}requestid=${crypto.randomUUID()}`;
+}
+
 function getBaseUrl(profile?: string): string {
   const info = profileStore.getInfo(profile);
   const env = info?.env || "sandbox";
   return BASE_URLS[env] || BASE_URLS.sandbox;
 }
 
-async function makeRequest(token: TokenData, url: string, init?: RequestInit): Promise<Response> {
+async function makeRequest(
+  token: TokenData,
+  url: string,
+  init?: RequestInit,
+  idempotent = false
+): Promise<Response> {
   return fetchWithRetry(url, {
     ...init,
     headers: {
@@ -22,7 +50,7 @@ async function makeRequest(token: TokenData, url: string, init?: RequestInit): P
       Accept: "application/json",
       ...init?.headers
     }
-  });
+  }, { idempotent });
 }
 
 export async function intuitFetch(path: string, init?: RequestInit, profile?: string): Promise<Response> {
@@ -31,9 +59,13 @@ export async function intuitFetch(path: string, init?: RequestInit, profile?: st
   const p = profile || profileStore.getActive();
   let token = await tokenStore.getValidToken(p);
   const baseUrl = getBaseUrl(p);
-  const url = `${baseUrl}/${token.realmId}/${path}`;
 
   const method = init?.method || "GET";
+  // Writes carry a requestid, which makes them safe for fetchWithRetry to replay.
+  const requestPath = withRequestId(path, method);
+  const isWrite = WRITE_METHODS.has(method.toUpperCase());
+  const url = `${baseUrl}/${token.realmId}/${requestPath}`;
+
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token.access_token}`,
     Accept: "application/json",
@@ -42,7 +74,7 @@ export async function intuitFetch(path: string, init?: RequestInit, profile?: st
   debugRequest(method, url, headers, init?.body as string | undefined);
 
   const start = Date.now();
-  let res = await makeRequest(token, url, init);
+  let res = await makeRequest(token, url, init, isWrite);
   let bodyText = await res.text();
   debugResponse(res.status, res.statusText, res.headers, Date.now() - start, bodyText);
 
@@ -50,7 +82,8 @@ export async function intuitFetch(path: string, init?: RequestInit, profile?: st
     debug("Access token expired, refreshing...");
     token = await tokenStore.refreshToken(token, p);
     const start2 = Date.now();
-    res = await makeRequest(token, url, init);
+    // Same url, so a write replays under its original requestid.
+    res = await makeRequest(token, url, init, isWrite);
     bodyText = await res.text();
     debugResponse(res.status, res.statusText, res.headers, Date.now() - start2, bodyText);
   }
