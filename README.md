@@ -223,7 +223,7 @@ The CLI is usable as an agent tool surface as-is — pipe `intuit ...` into any 
 
 ### Write safety
 
-Every create command supports `--dry-run` (preview without sending) and `--idempotency-tag <run-id>` (writes a marker into entity Notes for audit traceability):
+`customers create`, `invoices create`, `vendors create`, and the Premium `projects` / `custom-fields` / `dimensions` writes support `--dry-run` (preview without sending) and `--idempotency-tag <run-id>` (writes a marker into entity Notes for audit traceability). Other writes have neither — stage the payload with `--file` and review it before running:
 
 ```bash
 intuit customers create --display-name "Acme" --dry-run --idempotency-tag run-b3a7
@@ -254,6 +254,26 @@ intuit webhooks listen --verifier-token <token> --events qbo.invoice.created.v1
 ```
 
 Signatures are verified and recent events can be replayed with `intuit webhooks replay`.
+
+### Claude Code skill
+
+This repo ships a [Claude Code](https://claude.com/claude-code) skill that teaches Claude the CLI's grammar, its write-safety rules, and what the Accounting API can't see. Install it as a plugin:
+
+```
+/plugin marketplace add lzhang-atom/intuit-cli-for-quickbooks
+/plugin install quickbooks@intuit-cli-for-quickbooks
+```
+
+Or drop it in by hand:
+
+```bash
+cp -r skills/quickbooks ~/.claude/skills/quickbooks      # personal
+cp -r skills/quickbooks .claude/skills/quickbooks        # one project
+```
+
+Claude loads it when a request touches QuickBooks — "who owes me money", "invoice Acme for July", "what did we spend on software". It authenticates through the same profiles the CLI uses, so `intuit auth login` still happens once, in your terminal.
+
+The skill defaults to reading, and before any write it checks whether the record already exists, derives amounts from your books rather than guessing, and shows you the payload first. See [`skills/quickbooks/SKILL.md`](skills/quickbooks/SKILL.md).
 
 ## Query syntax
 

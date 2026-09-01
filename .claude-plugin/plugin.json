@@ -1,0 +1,10 @@
+{
+  "name": "quickbooks",
+  "description": "Read and write QuickBooks Online accounting data through the intuit-cli command-line tool.",
+  "version": "0.1.0",
+  "author": { "name": "Li Zhang" },
+  "homepage": "https://github.com/lzhang-atom/intuit-cli-for-quickbooks#readme",
+  "repository": "https://github.com/lzhang-atom/intuit-cli-for-quickbooks",
+  "license": "Apache-2.0",
+  "keywords": ["quickbooks", "qbo", "accounting", "invoicing", "bookkeeping", "intuit"]
+}

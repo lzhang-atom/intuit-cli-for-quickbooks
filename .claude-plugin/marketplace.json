@@ -1,0 +1,14 @@
+{
+  "name": "intuit-cli-for-quickbooks",
+  "owner": { "name": "Li Zhang" },
+  "metadata": {
+    "description": "QuickBooks Online skills for Claude Code, built on intuit-cli."
+  },
+  "plugins": [
+    {
+      "name": "quickbooks",
+      "source": "./",
+      "description": "Read and write QuickBooks Online accounting data — invoices, customers, payments, bills, expenses — through the intuit-cli command-line tool."
+    }
+  ]
+}
