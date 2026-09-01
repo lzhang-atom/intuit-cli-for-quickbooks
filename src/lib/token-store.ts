@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
+import OAuthClient from "intuit-oauth";
 import { createOAuthClient } from "./oauth.js";
 import { getOrCreateKey, deleteKey } from "./keychain.js";
 import { configureTls } from "./tls.js";
@@ -11,6 +12,12 @@ export type TokenData = {
   refresh_token?: string;
   realmId?: string;
   expires_at?: number;
+  /**
+   * Absolute expiry of the refresh token. intuit-oauth needs a lifetime to
+   * decide whether a refresh is even worth attempting; without this it assumes
+   * zero. See primeRefreshToken.
+   */
+  refresh_token_expires_at?: number;
   /**
    * Full list of OAuth scope strings requested at login time. Intuit's OAuth
    * response doesn't return a granted-scope field, so we track what we asked
@@ -138,6 +145,46 @@ export const profileStore = {
   }
 };
 
+/**
+ * Intuit's documented refresh-token lifetime is 100 days, issued as
+ * x_refresh_token_expires_in (8726400s ≈ 101d). Used as the assumed lifetime
+ * for tokens minted before we started recording the real value.
+ */
+const REFRESH_TOKEN_TTL_MS = 101 * 24 * 60 * 60 * 1000;
+
+/** Absolute refresh-token expiry from an OAuth response, falling back to the documented TTL. */
+export function refreshExpiryFrom(token: { x_refresh_token_expires_in?: number }): number {
+  const seconds = token.x_refresh_token_expires_in;
+  return Date.now() + (seconds && seconds > 0 ? seconds * 1000 : REFRESH_TOKEN_TTL_MS);
+}
+
+/**
+ * Load a stored refresh token into an OAuth client so refresh() will actually
+ * call Intuit.
+ *
+ * intuit-oauth computes refresh validity as createdAt + x_refresh_token_expires_in
+ * (Token.js _checkExpiry). setToken defaults createdAt to now and the lifetime to
+ * 0, so a token carrying only refresh_token always reads as already expired and
+ * validateToken() throws "The Refresh token is invalid, please Authorize again."
+ * locally — the request never reaches Intuit. Handing it the real remaining
+ * lifetime keeps Intuit the authority on whether the token still works.
+ */
+export function primeRefreshToken(oauth: OAuthClient, token: TokenData): void {
+  const expiresAt = token.refresh_token_expires_at ?? Date.now() + REFRESH_TOKEN_TTL_MS;
+  const remainingMs = expiresAt - Date.now();
+  if (remainingMs <= 0) {
+    throw new Error(
+      `Refresh token expired on ${new Date(expiresAt).toISOString().slice(0, 10)}. Run \`intuit auth login\`.`
+    );
+  }
+
+  oauth.setToken({
+    refresh_token: token.refresh_token,
+    x_refresh_token_expires_in: Math.ceil(remainingMs / 1000),
+    createdAt: Date.now(),
+  });
+}
+
 export const tokenStore = {
   get(profile?: string): TokenData | null {
     const p = profile || profileStore.getActive();
@@ -191,7 +238,7 @@ export const tokenStore = {
     const info = profileStore.getInfo(p);
     configureTls();
     const oauth = createOAuthClient(info?.env);
-    oauth.setToken({ refresh_token: token.refresh_token });
+    primeRefreshToken(oauth, token);
 
     const authResponse = await oauth.refresh();
     const refreshed: TokenData = {
@@ -199,6 +246,7 @@ export const tokenStore = {
       refresh_token: authResponse.token.refresh_token,
       realmId: token.realmId,
       expires_at: Date.now() + 3600 * 1000,
+      refresh_token_expires_at: refreshExpiryFrom(authResponse.token),
       // Refresh tokens inherit the original token's scope set — preserve so
       // auth status / Premium checks survive auto-refresh.
       requestedScopes: token.requestedScopes,

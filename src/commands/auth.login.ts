@@ -2,7 +2,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import OAuthClient from "intuit-oauth";
 import { createOAuthClient } from "../lib/oauth.js";
-import { tokenStore, profileStore } from "../lib/token-store.js";
+import { tokenStore, profileStore, refreshExpiryFrom } from "../lib/token-store.js";
 import { configureTls } from "../lib/tls.js";
 
 // Consent involves signing in, picking a company, and approving scopes, which
@@ -156,6 +156,7 @@ export async function authLogin(
     refresh_token: authResponse.token.refresh_token,
     realmId,
     expires_at: Date.now() + 3600 * 1000,
+    refresh_token_expires_at: refreshExpiryFrom(authResponse.token),
     requestedScopes,
   }, profile);
 

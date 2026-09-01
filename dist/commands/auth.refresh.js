@@ -1,5 +1,5 @@
 import { createOAuthClient } from "../lib/oauth.js";
-import { tokenStore, profileStore } from "../lib/token-store.js";
+import { tokenStore, profileStore, primeRefreshToken, refreshExpiryFrom } from "../lib/token-store.js";
 import { configureTls } from "../lib/tls.js";
 export async function authRefresh(profile) {
     configureTls();
@@ -10,13 +10,14 @@ export async function authRefresh(profile) {
     }
     const info = profileStore.getInfo(p);
     const oauth = createOAuthClient(info?.env);
-    oauth.setToken({ refresh_token: token.refresh_token });
+    primeRefreshToken(oauth, token);
     const authResponse = await oauth.refresh();
     tokenStore.set({
         access_token: authResponse.token.access_token,
         refresh_token: authResponse.token.refresh_token,
         realmId: token.realmId,
         expires_at: Date.now() + 3600 * 1000,
+        refresh_token_expires_at: refreshExpiryFrom(authResponse.token),
         requestedScopes: token.requestedScopes,
     }, p);
     console.log(`Token refreshed successfully. (Profile: ${p})`);
