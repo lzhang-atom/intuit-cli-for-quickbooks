@@ -5,6 +5,24 @@ const PREMIUM_SCOPE_TO_LABEL = {
     "app-foundations.custom-field-definitions": "custom-fields",
     "app-foundations.custom-dimensions.read": "dimensions",
 };
+/** Warn this far ahead of refresh-token expiry — past it, only a browser re-login recovers. */
+const REFRESH_EXPIRY_WARN_MS = 14 * 24 * 60 * 60 * 1000;
+/**
+ * A refresh token past its expiry is dead weight: auto-refresh will fail and
+ * only `auth login` recovers. Status must say so rather than reporting the
+ * token as present.
+ */
+function computeRefreshState(token) {
+    if (!token?.refresh_token)
+        return { status: "missing", expiresAt: null };
+    const expiresAt = token.refresh_token_expires_at;
+    if (expiresAt && Date.now() >= expiresAt)
+        return { status: "expired", expiresAt };
+    return { status: "present", expiresAt: expiresAt ?? null };
+}
+function isoDay(ms) {
+    return new Date(ms).toISOString().slice(0, 10);
+}
 function classifyScopes(requestedScopes) {
     if (!requestedScopes || requestedScopes.length === 0)
         return { requested: [], premium: [] };
@@ -21,7 +39,8 @@ export function authStatus(profile, options = {}) {
     const info = profileStore.getInfo(p);
     const isActive = p === active;
     // Derive the unified state once; both JSON and human paths use it.
-    const state = computeState(token, info?.env);
+    const refresh = computeRefreshState(token);
+    const state = computeState(token, refresh);
     const scopeInfo = classifyScopes(token?.requestedScopes);
     if (options.json) {
         const json = {
@@ -37,7 +56,9 @@ export function authStatus(profile, options = {}) {
                 expiresInMs: token?.expires_at ? token.expires_at - Date.now() : null,
             },
             refreshToken: {
-                status: token?.refresh_token ? "present" : "missing",
+                status: refresh.status,
+                expiresAt: refresh.expiresAt ? new Date(refresh.expiresAt).toISOString() : null,
+                expiresInMs: refresh.expiresAt ? refresh.expiresAt - Date.now() : null,
             },
             requestedScopes: scopeInfo.requested.length > 0 ? scopeInfo.requested : null,
             premiumScopes: scopeInfo.premium,
@@ -78,13 +99,24 @@ export function authStatus(profile, options = {}) {
     }
     else {
         // expired
-        accessTokenLabel = token.refresh_token
+        accessTokenLabel = refresh.status === "present"
             ? "Expired (will auto-refresh on next call)"
-            : "Expired (no refresh token; re-login required)";
+            : "Expired (no usable refresh token; re-login required)";
     }
-    const refreshTokenLabel = token.refresh_token
-        ? "Present (rotates on each use, ~101d max)"
-        : "Missing";
+    let refreshTokenLabel;
+    if (refresh.status === "missing") {
+        refreshTokenLabel = "Missing";
+    }
+    else if (refresh.status === "expired") {
+        refreshTokenLabel = `Expired ${isoDay(refresh.expiresAt)} (re-login required)`;
+    }
+    else if (refresh.expiresAt) {
+        const days = Math.floor((refresh.expiresAt - Date.now()) / 86_400_000);
+        refreshTokenLabel = `Valid until ${isoDay(refresh.expiresAt)} (${days}d; rotates on each use)`;
+    }
+    else {
+        refreshTokenLabel = "Present (expiry unrecorded; ~101d max, rotates on each use)";
+    }
     const scopesLabel = scopeInfo.requested.length === 0
         ? "Unknown (token was issued before scope tracking)"
         : scopeInfo.premium.length === 0
@@ -114,6 +146,15 @@ export function authStatus(profile, options = {}) {
     if (state.nextAction !== "none") {
         console.log(nextActionGuidance(state.nextAction, p));
     }
+    // The refresh token is the only thing standing between the CLI and a browser
+    // re-login, and it dies silently. Surface it while it can still be renewed.
+    if (refresh.status === "expired") {
+        console.log(`\n⚠  Refresh token expired ${isoDay(refresh.expiresAt)} — run \`intuit auth login --profile ${p}\` to reconnect.`);
+    }
+    else if (refresh.expiresAt && refresh.expiresAt - Date.now() < REFRESH_EXPIRY_WARN_MS) {
+        const days = Math.floor((refresh.expiresAt - Date.now()) / 86_400_000);
+        console.log(`\n⚠  Refresh token expires ${isoDay(refresh.expiresAt)} (${days}d). Any command run before then renews it automatically.`);
+    }
     if (isProd) {
         console.log(`\n⚠  Production environment — changes affect live QuickBooks data.`);
     }
@@ -121,7 +162,7 @@ export function authStatus(profile, options = {}) {
         console.log(`\nThis is not the active profile. Run \`intuit profile switch ${p}\` to make it active.`);
     }
 }
-function computeState(token, _env) {
+function computeState(token, refresh) {
     if (!token?.access_token) {
         return { accessStatus: "missing", effectiveStatus: "no-credentials", nextAction: "run-auth-login" };
     }
@@ -132,7 +173,7 @@ function computeState(token, _env) {
         return { accessStatus, effectiveStatus: "ready", nextAction: "none" };
     }
     // expired
-    if (token.refresh_token) {
+    if (refresh.status === "present") {
         return {
             accessStatus,
             effectiveStatus: "needs-refresh",
